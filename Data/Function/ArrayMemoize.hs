@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module Data.Function.ArrayMemoize
+module Data.Function.ArrayMemoize where
 
 import Data.Array.MArray
 import Data.Array.Unboxed
@@ -9,7 +9,7 @@ import Control.Monad.ST
 
 -- Memoize a function as an array over a finite domain
 
-arrayMemo :: (Ix a, ArrayMemo b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+arrayMemo :: (Ix a, Discrete b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
 arrayMemo f (l, u) =
      let cache = runSTArray (do cache <- (newUArray_ (l, u)) 
                                 mapM_ (\x -> writeUArray cache x (f' x)) (range (l, u))
@@ -24,23 +24,19 @@ arrayMemo f (l, u) =
 
 -}
  
-class IArray UArray a => ArrayMemo a where
+class IArray UArray a => Discrete a where
     newUArray_ :: (Ix i) => (i, i) -> ST s (STArray s i a)
-    readUArray :: (Ix i) => STArray s i a -> i -> ST s a
     writeUArray :: (Ix i) => STArray s i a -> i -> a -> ST s ()
 
-instance ArrayMemo Float where
+instance Discrete Float where
     newUArray_ = newArray_
-    readUArray = readArray
     writeUArray = writeArray
 
-instance ArrayMemo Double where
+instance Discrete Double where
     newUArray_ = newArray_
-    readUArray = readArray
     writeUArray = writeArray
 
-instance ArrayMemo Int where
+instance Discrete Int where
     newUArray_ = newArray_
-    readUArray = readArray
     writeUArray = writeArray
 
