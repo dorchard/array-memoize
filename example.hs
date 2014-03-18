@@ -1,5 +1,4 @@
 import Data.Function.ArrayMemoize
-import Data.Function.Memoize
 
 -- Example:
 
@@ -25,3 +24,4 @@ fibIO' rec n = do a <- rec (n - 1)
 
 fibIO :: Int -> IO Int
 fibIO = uarrayMemoFixIO fibIO' (0,1000)
+
