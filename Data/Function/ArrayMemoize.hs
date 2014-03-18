@@ -29,6 +29,8 @@ uarrayMemoFixIO f (l, u) =
              mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
              f' i
 
+
+-- Additional proof needed to check the unsafePerformIO is ok- possibly hacky
 uarrayMemoFix :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
 uarrayMemoFix f (l, u) =
     \i -> unsafePerformIO $ 
@@ -36,32 +38,10 @@ uarrayMemoFix f (l, u) =
              let f' = f (\x -> unsafePerformIO $ readUArray cache x)
              mapM_ (\x -> (return $ f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
              return $ f' i
-
-
-{--  Unboxed attempts which do not terminate
-
-uarrayMemoFix :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
-uarrayMemoFix f (l, u) =
-    \x -> 
-    do rec { cache <- (newUArray_ (l, u));
-             mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u));
-             f' <- return $ f (\x -> readUArray cache x) }
-       f' x
-
-
-uarrayMemo :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
-uarrayMemo f (l, u) =
-     let cache = (runST ((do cache <- (newUArray_ (l, u)) 
-                             mapM_ (\x -> writeUArray cache x (f' x)) (range (l, u))
-                             return cache) >>= freeze))::(UArray a b)
-         f' = f (\x -> cache ! x)
-     in f'
---}
-
 {-
 
  The following defines the subset of types for which we can do array 
- memoization (the unboxed class). 
+ memoization
 
 -}
  
@@ -81,6 +61,7 @@ instance ArrayMemoizable Int where
     newArray_ = MArray.newArray_
     writeArray = MArray.writeArray
 
+-- Unboxed versions using IO
 
 class IArray UArray a => UArrayMemoizable a where
     newUArray_ :: (Ix i) => (i, i) -> IO (IOUArray i a)
