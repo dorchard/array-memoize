@@ -2,20 +2,21 @@
 
 module Data.Function.ArrayMemoize where
 
-import Data.Array.MArray
+import qualified Data.Array.MArray as MArray
 import Data.Array.Unboxed
-import Data.Array.ST
+import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
 
 -- Memoize a function as an array over a finite domain
 
-arrayMemo :: (Ix a, Discrete b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+arrayMemo :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
 arrayMemo f (l, u) =
-     let cache = runSTArray (do cache <- (newUArray_ (l, u)) 
-                                mapM_ (\x -> writeUArray cache x (f' x)) (range (l, u))
+     let cache = runSTArray (do cache <- (newArray_ (l, u)) 
+                                mapM_ (\x -> writeArray cache x (f' x)) (range (l, u))
                                 return cache)
          f' = f (\x -> cache ! x)
-     in f' 
+     in f'
+
 
 {-
 
@@ -24,19 +25,19 @@ arrayMemo f (l, u) =
 
 -}
  
-class IArray UArray a => Discrete a where
-    newUArray_ :: (Ix i) => (i, i) -> ST s (STArray s i a)
-    writeUArray :: (Ix i) => STArray s i a -> i -> a -> ST s ()
+class ArrayMemoizable a where
+    newArray_ :: (Ix i) => (i, i) -> ST s (STArray s i a)
+    writeArray :: (Ix i) => STArray s i a -> i -> a -> ST s ()
 
-instance Discrete Float where
-    newUArray_ = newArray_
-    writeUArray = writeArray
+instance ArrayMemoizable Float where
+    newArray_ = MArray.newArray_
+    writeArray = MArray.writeArray
 
-instance Discrete Double where
-    newUArray_ = newArray_
-    writeUArray = writeArray
+instance ArrayMemoizable Double where
+    newArray_ = MArray.newArray_
+    writeArray = MArray.writeArray
 
-instance Discrete Int where
-    newUArray_ = newArray_
-    writeUArray = writeArray
+instance ArrayMemoizable Int where
+    newArray_ = MArray.newArray_
+    writeArray = MArray.writeArray
 
