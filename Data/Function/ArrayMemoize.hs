@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeFamilies #-}
 
 module Data.Function.ArrayMemoize where
 
@@ -8,7 +8,49 @@ import Data.Array.IO (IOUArray)
 import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
 
+import Debug.Trace
+
 -- Memoize a function as an array over a finite domain
+
+discMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
+discMemo f (l, u) delta =
+     let disc x = discretize x delta
+         cache = runSTArray (do cache <- (newArray_ (disc l, disc u)) 
+                                mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) (u-delta))
+                                return cache)
+         f' = f (\x -> (show x ++ "-" ++ show (disc x)) `trace` cache ! (disc x))
+     in (show (map disc (enumFromThenTo l (l+delta) u))) `trace` f'
+
+discMemoA f (l, u) delta =
+     let disc x = discretize x delta
+         cache = runSTArray (do cache <- (newArray_ (disc l, disc u)) 
+                                -- mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) u)
+                                return cache)
+         f' = f (\x -> (show x ++ "-" ++ show (disc x)) `trace` cache ! (disc x))
+     in cache
+
+class (Ix (Discrete t), Enum t) => Discretize t where
+    type Discrete t
+    discretize :: t -> t -> Discrete t
+
+instance Discretize Float where
+    type Discrete Float = Int
+    discretize x delta = ceiling (x / delta)
+
+instance Discretize Double where
+    type Discrete Double = Int
+    discretize x delta = ceiling (x / delta)
+
+instance (Discretize a, Discretize b) => Discretize (a, b) where
+    type Discrete (a, b) = (Discrete a, Discrete b)
+    discretize (x, y) (dx, dy) = (discretize x dx, discretize y dy)
+
+instance (Discretize a, Discretize b, Discretize c) => Discretize (a, b, c) where
+    type Discrete (a, b, c) = (Discrete a, Discrete b, Discrete c)
+    discretize (x, y, z) (dx, dy, dz) = (discretize x dx, discretize y dy, discretize z dz)
+
+
+
 
 arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
 arrayMemoFix f (l, u) =
@@ -76,3 +118,30 @@ instance UArrayMemoizable Int where
     writeUArray = MArray.writeArray
     freeze = MArray.freeze
 
+{-
+
+Num and Enum classes for working with tuple domains
+
+-}
+
+instance (Enum a, Enum b) => Enum (a, b) where
+    toEnum = undefined
+    fromEnum (a, b) = fromEnum a * fromEnum b
+
+    enumFromThenTo (lx, ly) (nx, ny) (ux, uy) = 
+        [lx,nx..ux] >>= (\x -> [ly,ny..uy] >>= (\y -> return (x, y)))
+
+instance (Enum a, Enum b, Enum c) => Enum (a, b, c) where
+    toEnum = undefined
+    fromEnum (a, b, c) = fromEnum a * fromEnum b * fromEnum c
+
+    enumFromThenTo (lx, ly, lz) (nx, ny, nz) (ux, uy, uz) = 
+        [lx,nx..ux] >>= (\x -> [ly,ny..uy] >>= (\y -> [lz,nz..uz] >>= (\z -> return (x, y, z))))
+
+instance (Num a, Num b) => Num (a, b) where
+    (a1, b1) + (a2, b2) = (a1 + a2, b1 + b2)
+    (a1, b1) * (a2, b2) = (a1 * a2, b1 * b2)
+    negate (a, b) = (negate a, negate b)
+    abs (a, b) = (abs a, abs b)
+    signum (a, b) = (signum a, signum b)
+    fromInteger i = (0, fromInteger i)
