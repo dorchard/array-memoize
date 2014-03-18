@@ -1,22 +1,62 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, RankNTypes, RecursiveDo #-}
 
 module Data.Function.ArrayMemoize where
 
 import qualified Data.Array.MArray as MArray
 import Data.Array.Unboxed
+import Data.Array.IO (IOUArray)
 import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
 
+import System.IO.Unsafe
+
+import Data.Array.Base (unsafeFreezeSTUArray)
+
 -- Memoize a function as an array over a finite domain
 
-arrayMemo :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
-arrayMemo f (l, u) =
+arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+arrayMemoFix f (l, u) =
      let cache = runSTArray (do cache <- (newArray_ (l, u)) 
                                 mapM_ (\x -> writeArray cache x (f' x)) (range (l, u))
                                 return cache)
          f' = f (\x -> cache ! x)
      in f'
 
+uarrayMemoFixIO :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
+uarrayMemoFixIO f (l, u) =
+    \i -> do cache <- (newUArray_ (l, u))
+             let f' = f (\x -> readUArray cache x)
+             mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
+             f' i
+
+uarrayMemoFix :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+uarrayMemoFix f (l, u) =
+    \i -> unsafePerformIO $ 
+          do cache <- (newUArray_ (l, u))
+             let f' = f (\x -> unsafePerformIO $ readUArray cache x)
+             mapM_ (\x -> (return $ f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
+             return $ f' i
+
+
+{--  Unboxed attempts which do not terminate
+
+uarrayMemoFix :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
+uarrayMemoFix f (l, u) =
+    \x -> 
+    do rec { cache <- (newUArray_ (l, u));
+             mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u));
+             f' <- return $ f (\x -> readUArray cache x) }
+       f' x
+
+
+uarrayMemo :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+uarrayMemo f (l, u) =
+     let cache = (runST ((do cache <- (newUArray_ (l, u)) 
+                             mapM_ (\x -> writeUArray cache x (f' x)) (range (l, u))
+                             return cache) >>= freeze))::(UArray a b)
+         f' = f (\x -> cache ! x)
+     in f'
+--}
 
 {-
 
@@ -40,4 +80,29 @@ instance ArrayMemoizable Double where
 instance ArrayMemoizable Int where
     newArray_ = MArray.newArray_
     writeArray = MArray.writeArray
+
+
+class IArray UArray a => UArrayMemoizable a where
+    newUArray_ :: (Ix i) => (i, i) -> IO (IOUArray i a)
+    writeUArray :: (Ix i) => IOUArray i a -> i -> a -> IO ()
+    readUArray :: (Ix i) => IOUArray i a -> i -> IO a
+    freeze :: (Ix i) => IOUArray i a -> IO (UArray i a)
+
+instance UArrayMemoizable Float where
+    newUArray_ = MArray.newArray_
+    readUArray = MArray.readArray
+    writeUArray = MArray.writeArray
+    freeze = MArray.freeze
+
+instance UArrayMemoizable Double where
+    newUArray_ = MArray.newArray_
+    readUArray = MArray.readArray
+    writeUArray = MArray.writeArray
+    freeze = MArray.freeze
+
+instance UArrayMemoizable Int where
+    newUArray_ = MArray.newArray_
+    readUArray = MArray.readArray
+    writeUArray = MArray.writeArray
+    freeze = MArray.freeze
 
