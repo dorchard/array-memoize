@@ -1,5 +1,6 @@
 import Data.Function.ArrayMemoize
 import Data.Function.Memoize
+import Criterion.Main 
 
 -- Example:
 
@@ -25,3 +26,17 @@ fibIO' rec n = do a <- rec (n - 1)
 
 fibIO :: Int -> IO Int
 fibIO = uarrayMemoFixIO fibIO' (0,1000)
+
+-- Benchmarking - comparision with the Data.Function.Memoize library
+
+fibS s = arrayMemoFix fib' (0, s)
+fibIOS s = uarrayMemoFixIO fibIO' (0,s)
+
+main = defaultMain [
+        bcompare[ bench "memoFix" $ whnf (memoFix fib') 1000, 
+                  bench "arryMemoFix" $ whnf fib 1000, 
+                  bench "arrayMemoFix 50000" $ whnf (fibS 5000) 1000, 
+                  bench "uarrayMemoFixIO" $ whnf fibIO 1000,
+                  bench "uarrayMemoFixIO 50000" $ whnf (fibIOS 5000) 1000 ] 
+       ]
+

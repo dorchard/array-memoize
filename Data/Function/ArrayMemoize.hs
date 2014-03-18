@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables, RankNTypes, RecursiveDo #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Data.Function.ArrayMemoize where
 
@@ -7,10 +7,6 @@ import Data.Array.Unboxed
 import Data.Array.IO (IOUArray)
 import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
-
-import System.IO.Unsafe
-
-import Data.Array.Base (unsafeFreezeSTUArray)
 
 -- Memoize a function as an array over a finite domain
 
@@ -22,22 +18,15 @@ arrayMemoFix f (l, u) =
          f' = f (\x -> cache ! x)
      in f'
 
-uarrayMemoFixIO :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
+-- Use an unboxed IO array instead (but requires incoming function must return IO
+
+uarrayMemoFixIO :: (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
 uarrayMemoFixIO f (l, u) =
     \i -> do cache <- (newUArray_ (l, u))
              let f' = f (\x -> readUArray cache x)
              mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
              f' i
 
-
--- Additional proof needed to check the unsafePerformIO is ok- possibly hacky
-uarrayMemoFix :: forall a b . (Ix a, UArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
-uarrayMemoFix f (l, u) =
-    \i -> unsafePerformIO $ 
-          do cache <- (newUArray_ (l, u))
-             let f' = f (\x -> unsafePerformIO $ readUArray cache x)
-             mapM_ (\x -> (return $ f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
-             return $ f' i
 {-
 
  The following defines the subset of types for which we can do array 
