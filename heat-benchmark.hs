@@ -56,43 +56,50 @@ heatD3 = discreteMemo heatA ((0, 0), (nx, nt)) (delx, delt)
 
 -- The following is a nice style for writing it all together- and reasonably fast - faster than D2
 heat :: (Int, Int) -> Float
-heat = let h (0.0, t) = 1
-           h (3.0, t) = 0
-           h (x, 0.0) = 0
-           h (x, t)   = (h' (x, t')) + r * (h' (x - delx, t') - 2 * (h' (x, t')) + h' (x + delx, t'))
-                          where t'= t - delt
-           h' = quantizedMemo h ((0, 0), (nx, nt)) (delx, delt)
+heat = let   -- Parameter setup
+             alpha = 0.23
+             dt = 0.05 
+             dx = 0.1 
+             nt = 5
+             nx = 3
 
-           alpha = 0.23
+             r = alpha * (dt / (dx * dx))
 
-           delt = 0.05 :: Float
-           delx = 0.1  :: Float
-           nt = 5      :: Float
-           nx = 3      :: Float
+             -- Continuous heat equation
+             h :: (Float, Float) -> Float
+             h (x, t) | x == 0.0  = 1
+                      | x == nx   = 0
+                      | t == 0.0  = 0
+                      | otherwise = h'(x, t-dt) + r * (h'(x-dx, t-dt) - 2*(h'(x, t-dt)) + h'(x+dx, t-dt))
 
-           r = alpha * (delt / (delx * delx))
+             -- Faster quantized heat equation
+             h' = quantizedMemo  h  ((0, 0), (nx, nt))  (dx, dt)
 
-       in discrete h' (delx, delt)
+        -- Finally return discrete version 
+        in discrete  h'  (dx, dt)
 
 heatDub :: (Int, Int) -> Double
-heatDub =
-       let h (0.0, t) = 1
-           h (3.0, t) = 0
-           h (x, 0.0) = 0
-           h (x, t)   = (h' (x, t')) + r * (h' (x - delx, t') - 2 * (h' (x, t')) + h' (x + delx, t'))
-                          where t'= t - delt
-           h' = quantizedMemo h ((0, 0), (nx, nt)) (delx, delt)
+heatDub = let   -- Parameter setup
+             alpha = 0.23
+             dt = 0.05 
+             dx = 0.1 
+             nt = 5
+             nx = 3
 
-           alpha = 0.23
+             r = alpha * (dt / (dx * dx))
 
-           delt = 0.05 :: Double
-           delx = 0.1  :: Double
-           nt = 5      
-           nx = 3      
+             -- Continuous heat equation
+             h :: (Double, Double) -> Double
+             h (x, t) | x == 0.0  = 1
+                      | x == nx   = 0
+                      | t == 0.0  = 0
+                      | otherwise = h'(x, t-dt) + r * (h'(x-dx, t-dt) - 2*(h'(x, t-dt)) + h'(x+dx, t-dt))
 
-           r = alpha * (delt / (delx * delx))
+             -- Faster quantized heat equation
+             h' = quantizedMemo  h  ((0, 0), (nx, nt))  (dx, dt)
 
-       in discrete h' (delx, delt)
+          -- Finally return discrete version 
+          in discrete  h'  (dx, dt)
 
 fix f = f (fix f)
 
