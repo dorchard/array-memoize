@@ -9,7 +9,7 @@ nx = 3      :: Float
 
 heat' :: ((Float, Float) -> Float) -> (Float, Float) -> Float
 heat' _ (0.0, t) = 1
-heat' _ (3  , t) = 0
+heat' _ (x  , t) | x >= nx =  0
 heat' _ (x, 0.0) = 0
 heat' h (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                    where h' x = h (x, t - delt)

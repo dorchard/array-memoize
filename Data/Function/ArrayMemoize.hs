@@ -15,19 +15,22 @@ import Debug.Trace
 discMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
 discMemoFix f (l, u) delta =
      let disc x = discretize x delta
-         cache = runSTArray (do cache <- (newArray_ (disc l, disc u)) 
-                                mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) u)
+         cache = runSTArray (do cache <- newArray_ (disc l, disc u)
+                                mapM_ (\x -> writeArray cache x (f' (continuize x delta))) (enumFromTo (disc l) (disc u))
                                 return cache)
-         f' = f (\x -> (show (disc x)) `trace` cache ! (disc x))
+         f' = f (\x -> cache ! disc x)
      in f'
 
-class (Ix (Discrete t), Enum t) => Discretize t where
+class (Ix (Discrete t), Num (Discrete t), Enum (Discrete t)) => Discretize t where
     type Discrete t
     discretize :: t -> t -> Discrete t
+    continuize :: Discrete t -> t -> t
 
 instance Discretize Float where
     type Discrete Float = Int
-    discretize x delta = floor (x / delta)
+    discretize x delta = round' (x / delta) 
+                           where round' x = let (n,r) = properFraction x in n + (round r)
+    continuize x delta = (fromIntegral x) * delta
 
 {-
 instance Discretize Double where
@@ -37,17 +40,19 @@ instance Discretize Double where
 instance (Discretize a, Discretize b) => Discretize (a, b) where
     type Discrete (a, b) = (Discrete a, Discrete b)
     discretize (x, y) (dx, dy) = (discretize x dx, discretize y dy)
+    continuize (x, y) (dx, dy) = (continuize x dx, continuize y dy)
 
 instance (Discretize a, Discretize b, Discretize c) => Discretize (a, b, c) where
     type Discrete (a, b, c) = (Discrete a, Discrete b, Discrete c)
     discretize (x, y, z) (dx, dy, dz) = (discretize x dx, discretize y dy, discretize z dz)
+    continuize (x, y, z) (dx, dy, dz) = (continuize x dx, continuize y dy, continuize z dz)
 
 
 
 
 arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
 arrayMemoFix f (l, u) =
-     let cache = runSTArray (do cache <- (newArray_ (l, u)) 
+     let cache = runSTArray (do cache <- newArray_ (l, u)
                                 mapM_ (\x -> writeArray cache x (f' x)) (range (l, u))
                                 return cache)
          f' = f (\x -> cache ! x)
@@ -57,7 +62,7 @@ arrayMemoFix f (l, u) =
 
 uarrayMemoFixIO :: (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
 uarrayMemoFixIO f (l, u) =
-    \i -> do cache <- (newUArray_ (l, u))
+    \i -> do cache <- newUArray_ (l, u)
              let f' = f (\x -> readUArray cache x)
              mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            
              f' i
@@ -121,8 +126,8 @@ instance (Enum a, Enum b) => Enum (a, b) where
     toEnum = undefined
     fromEnum (a, b) = fromEnum a * fromEnum b
 
-    enumFromThenTo (lx, ly) (nx, ny) (ux, uy) = 
-        [ly,ny..uy] >>= (\y -> [lx,nx..ux] >>= (\x -> return (x, y)))
+    enumFromTo (lx, ly) (ux, uy) = 
+        [ly..uy] >>= (\y -> [lx..ux] >>= (\x -> return (x, y)))
 
 instance (Enum a, Enum b, Enum c) => Enum (a, b, c) where
     toEnum = undefined
@@ -138,3 +143,12 @@ instance (Num a, Num b) => Num (a, b) where
     abs (a, b) = (abs a, abs b)
     signum (a, b) = (signum a, signum b)
     fromInteger i = (0, fromInteger i)
+
+
+instance (Num a, Num b, Num c) => Num (a, b, c) where
+    (a1, b1, c1) + (a2, b2, c2) = (a1 + a2, b1 + b2, c1 + c2)
+    (a1, b1, c1) * (a2, b2, c2) = (a1 * a2, b1 * b2, c1 * c2)
+    negate (a, b, c) = (negate a, negate b, negate c)
+    abs (a, b, c) = (abs a, abs b, abs c)
+    signum (a, b, c) = (signum a, signum b, signum c)
+    fromInteger i = (0, 0, fromInteger i)
