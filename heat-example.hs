@@ -16,10 +16,10 @@ heat = let   -- Parameter setup
              h (0.0, t) = 1
              h (3.0, t) = 0
              h (x, 0.0) = 0
-             h (x, t)   = h' (x, t-dt) + r * (h' (x-dx, t-dt) - 2*(h' (x, t-dt)) + h' (x+dx, t-dt))
+             h (x, t)   = h'(x, t-dt) + r * (h'(x-dx, t-dt) - 2*(h'(x, t-dt)) + h'(x+dx, t-dt))
 
              -- Faster quantized heat equation
-             h' = quantizedMemo h ((0, 0), (nx, nt)) (dx, dt)
+             h' = quantizedMemo  h  ((0, 0), (nx, nt))  (dx, dt)
 
         -- Finally return discrete version 
-        in discrete h' (dx, dt)
+        in discrete  h'  (dx, dt)
