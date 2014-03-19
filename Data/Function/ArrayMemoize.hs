@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeFamilies, NoMonomorphismRestriction #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeFamilies #-}
 
 module Data.Function.ArrayMemoize where
 
@@ -30,24 +30,24 @@ disc' = discretize
 
 -- Memoize and quantize a function over a finite (sub)domain, using an array. 
 
-{-# INLINE quantMemo #-}
-quantMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => (a -> b) -> (a, a) -> a -> (a -> b)
-quantMemo f (l, u) delta =
+{-# INLINE quantizedMemo #-}
+quantizedMemo :: (ArrayMemoizable b, Discretize a) => (a -> b) -> (a, a) -> a -> (a -> b)
+quantizedMemo f (l, u) delta =
      let disc  = discretize delta
          cache = runSTArray (do cache <- newArray_ (disc l, disc u)
                                 mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
                                 return cache)
      in (\x -> cache ! disc x)
 
-{-# INLINE quantMemoFix #-}
-quantMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
-quantMemoFix f (l, u) delta = memo_f where memo_f = quantMemo (f memo_f) (l, u) delta 
+{-# INLINE quantizedMemoFix #-}
+quantizedMemoFix :: (ArrayMemoizable b, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
+quantizedMemoFix f (l, u) delta = memo_f where memo_f = quantizedMemo (f memo_f) (l, u) delta 
 
 -- Memoize and discretize a function over a finite (sub)domain, using an array. 
 
-{-# INLINE discMemo #-}
-discMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => (a -> b) -> (a, a) -> a -> (Discrete a -> b)
-discMemo f (l, u) delta =
+{-# INLINE discreteMemo #-}
+discreteMemo :: (ArrayMemoizable b, Discretize a) => (a -> b) -> (a, a) -> a -> (Discrete a -> b)
+discreteMemo f (l, u) delta =
      let disc  = discretize delta
          cache = runSTArray (do cache <- newArray_ (disc l, disc u)
                                 mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
@@ -55,9 +55,9 @@ discMemo f (l, u) delta =
          
      in (\x -> cache ! x)
 
-{-# INLINE discMemoFix #-}
-discMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (Discrete a -> b)
-discMemoFix f (l, u) delta =
+{-# INLINE discreteMemoFix #-}
+discreteMemoFix :: (ArrayMemoizable b, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (Discrete a -> b)
+discreteMemoFix f (l, u) delta =
      let disc  = discretize delta
          cache' = runSTArray (do cache <- newArray_ (disc l, disc u)
                                  mapM_ (\x -> writeArray cache x (f (\x -> cache' ! (disc x)) (continuize delta x))) (enumFromTo (disc l) (disc u))
@@ -175,13 +175,9 @@ instance (Num a, Num b, Num c) => Num (a, b, c) where
     signum (a, b, c) = (signum a, signum b, signum c)
     fromInteger i = (0, 0, fromInteger i)
 
-{- 
+{-  Discretization of float/double values and tuples -}
 
-Discretization of float/double values and tuples
-
--}
-
-class (Ix (Discrete t), Num (Discrete t), Enum (Discrete t)) => Discretize t where
+class (Ix (Discrete t), Enum (Discrete t)) => Discretize t where
     type Discrete t
     discretize :: t -> t -> Discrete t
     continuize :: t -> Discrete t -> t
@@ -208,3 +204,5 @@ instance (Discretize a, Discretize b, Discretize c) => Discretize (a, b, c) wher
     discretize (dx, dy, dz) (x, y, z) = (discretize dx x, discretize dy y, discretize dz z)
     continuize (dx, dy, dz) (x, y, z) = (continuize dx x, continuize dy y, continuize dz z)
 
+discrete :: Discretize a => (a -> b) -> a -> (Discrete a -> b)
+discrete f delta = f . (continuize delta)

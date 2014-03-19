@@ -23,11 +23,11 @@ heat' h (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
 
 -- Discrete heat function (requires writing unfixed version (or used macro), semantically easy)
 heatD :: (Int, Int) -> Float
-heatD = discMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heatD = discreteMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
 
 -- Quantized heat function (as above, but semantically can be tricky around edges)
 heatQ :: (Float, Float) -> Float
-heatQ = quantMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heatQ = quantizedMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
 
 heat'' :: (Float, Float) -> Float
 heat'' (0.0, t) = 1
@@ -38,7 +38,7 @@ heat'' (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                          r    = alpha * (delt / (delx * delx))
 
 -- Discrete heat function (via quantization) (syntactically the easiest, but slower than D)
-heatQB = quantMemo heat'' ((0, 0), (nx, nt)) (delx, delt)
+heatQB = quantizedMemo heat'' ((0, 0), (nx, nt)) (delx, delt)
 heatD2 :: (Int, Int) -> Float
 heatD2 = heatQB . (continuize (delx,delt))
 
@@ -52,7 +52,47 @@ heatA (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                          r       = alpha * (delt / (delx * delx))
 
 heatD3 :: (Int, Int) -> Float
-heatD3 = discMemo heatA ((0, 0), (nx, nt)) (delx, delt)
+heatD3 = discreteMemo heatA ((0, 0), (nx, nt)) (delx, delt)
+
+-- The following is a nice style for writing it all together- and reasonably fast - faster than D2
+heat :: (Int, Int) -> Float
+heat = let h (0.0, t) = 1
+           h (3.0, t) = 0
+           h (x, 0.0) = 0
+           h (x, t)   = (h' (x, t')) + r * (h' (x - delx, t') - 2 * (h' (x, t')) + h' (x + delx, t'))
+                          where t'= t - delt
+           h' = quantizedMemo h ((0, 0), (nx, nt)) (delx, delt)
+
+           alpha = 0.23
+
+           delt = 0.05 :: Float
+           delx = 0.1  :: Float
+           nt = 5      :: Float
+           nx = 3      :: Float
+
+           r = alpha * (delt / (delx * delx))
+
+       in discrete h' (delx, delt)
+
+heatDub :: (Int, Int) -> Double
+heatDub =
+       let h (0.0, t) = 1
+           h (3.0, t) = 0
+           h (x, 0.0) = 0
+           h (x, t)   = (h' (x, t')) + r * (h' (x - delx, t') - 2 * (h' (x, t')) + h' (x + delx, t'))
+                          where t'= t - delt
+           h' = quantizedMemo h ((0, 0), (nx, nt)) (delx, delt)
+
+           alpha = 0.23
+
+           delt = 0.05 :: Double
+           delx = 0.1  :: Double
+           nt = 5      
+           nx = 3      
+
+           r = alpha * (delt / (delx * delx))
+
+       in discrete h' (delx, delt)
 
 fix f = f (fix f)
 
@@ -67,6 +107,8 @@ main = defaultMain [
                 --  bench "heatD2 '(0.2,0.1)'" $ whnf heatD2  (2,2),
                 --  bench "heatD3 '(0.2,0.1)'" $ whnf heatD3 (2,2),
 
+                  bench "heat '(1.5, 2.5)'" $ whnf heat (15,50),
+                  bench "heat double '(1.5, 2.5)'" $ whnf heatDub (15,50),
                   bench "heatD '(1.5, 2.5)'" $ whnf heatD (15,50),
                   bench "heatQ (1.5,2.5)"    $ whnf heatQ (1.5,2.5),
                   bench "heatQB (1.5,2.5)"   $ whnf heatQB (1.5,2.5),
