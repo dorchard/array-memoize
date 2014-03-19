@@ -1,38 +1,27 @@
 import Data.Function.ArrayMemoize
 
-alpha = 0.23
 
-delt = 0.05 :: Float
-delx = 0.1  :: Float
-nt = 5      :: Float
-nx = 3      :: Float
+heat :: (Int, Int) -> Double
+heat = let 
+           -- Parameter setup
+           alpha = 0.23
+           delt = 0.05 
+           delx = 0.1 
+           nt = 5
+           nx = 3
 
-heat' :: ((Float, Float) -> Float) -> (Float, Float) -> Float
-heat' _ (0.0, t) = 1
-heat' _ (3,   t) = 0
-heat' _ (x, 0.0) = 0
-heat' h (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
-                   where h' x = h (x, t - delt)
-                         r       = alpha * (delt / (delx * delx))
+           r = alpha * (delt / (delx * delx))
 
--- Discrete heat function
-heat :: (Int, Int) -> Float
-heat = discMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+           -- Continuous heat equation
+           h :: (Double, Double) -> Double
+           h (0.0, t) = 1
+           h (3.0, t) = 0
+           h (x, 0.0) = 0
+           h (x, t)   = (h' (x, t')) + r * (h' (x - delx, t') - 2 * (h' (x, t')) + h' (x + delx, t'))
+                          where t'= t - delt
 
--- Quantized heat function
-heatQ :: (Float, Float) -> Float
-heatQ = quantMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+           -- "Quantized" and fast heat equation
+           h' = quantizedMemo h ((0, 0), (nx, nt)) (delx, delt)
 
--- Alternate discretized heat function using fixed-point outside of the library 
-heatQA :: (Float, Float) -> Float
-heatQA (0.0, t) = 1
-heatQA (3,   t) = 0
-heatQA (x, 0.0) = 0
-heatQA (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
-                   where h' x = heatQB (x, t - delt)
-                         r       = alpha * (delt / (delx * delx))
-
-heatQB = quantMemo heatQA ((0, 0), (nx, nt)) (delx, delt)
-heatD :: (Int, Int) -> Float
-heatD = heatQB . (continuize (delx,delt))
-
+       -- Return discrete version of the heat equation
+       in discrete h' (delx, delt)
