@@ -27,3 +27,11 @@ fibIO' rec n = do a <- rec (n - 1)
 fibIO :: Int -> IO Int
 fibIO = uarrayMemoFixIO fibIO' (0,1000)
 
+-- Manual fix versions 
+
+fibA :: Int -> Int
+fibA 0 = 1
+fibA 1 = 1
+fibA n = fibB (n - 1) + fibB (n - 2)
+
+fibB = arrayMemo fibA (0, 1000)

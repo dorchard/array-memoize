@@ -2,6 +2,10 @@ import Data.Function.ArrayMemoize
 import Data.Function.Memoize
 import Criterion.Main 
 
+-- Compiled with: ghc -O2 --make benchmark.hs
+-- Run with:      ./benchmark -o benchmark-results.html
+
+
 -- Example:
 
 fib' :: (Int -> Int) -> Int -> Int

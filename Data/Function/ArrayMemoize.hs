@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeFamilies, NoMonomorphismRestriction #-}
 
 module Data.Function.ArrayMemoize where
 
@@ -10,56 +10,78 @@ import Control.Monad.ST
 
 import Debug.Trace
 
--- Memoize a function as an array over a finite domain
-
-discMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
-discMemoFix f (l, u) delta =
-     let disc x = discretize x delta
-         cache = runSTArray (do cache <- newArray_ (disc l, disc u)
-                                mapM_ (\x -> writeArray cache x (f' (continuize x delta))) (enumFromTo (disc l) (disc u))
-                                return cache)
-         f' = f (\x -> cache ! disc x)
-     in f'
-
-class (Ix (Discrete t), Num (Discrete t), Enum (Discrete t)) => Discretize t where
-    type Discrete t
-    discretize :: t -> t -> Discrete t
-    continuize :: Discrete t -> t -> t
-
-instance Discretize Float where
-    type Discrete Float = Int
-    discretize x delta = round' (x / delta) 
-                           where round' x = let (n,r) = properFraction x in n + (round r)
-    continuize x delta = (fromIntegral x) * delta
-
 {-
-instance Discretize Double where
-    type Discrete Double = Int
-    discretize x delta = floor (x / delta) -}
 
-instance (Discretize a, Discretize b) => Discretize (a, b) where
-    type Discrete (a, b) = (Discrete a, Discrete b)
-    discretize (x, y) (dx, dy) = (discretize x dx, discretize y dy)
-    continuize (x, y) (dx, dy) = (continuize x dx, continuize y dy)
+Attempt at rewrite rules
 
-instance (Discretize a, Discretize b, Discretize c) => Discretize (a, b, c) where
-    type Discrete (a, b, c) = (Discrete a, Discrete b, Discrete c)
-    discretize (x, y, z) (dx, dy, dz) = (discretize x dx, discretize y dy, discretize z dz)
-    continuize (x, y, z) (dx, dy, dz) = (continuize x dx, continuize y dy, continuize z dz)
+{-# RULES  "disc-rw1" continuize = cont';
+           "disc-rw2" discretize = disc';
+           "disc1a" forall delta x . disc' delta (cont' delta x) = x; 
+           "disc2a" forall delta x . cont' delta (disc' delta x) = x; 
+           "disc1b" forall delta . (disc' delta) . (cont' delta) = id;
+  #-}
 
+{-# NOINLINE cont' #-}
+cont' = continuize 
+{-# NOINLINE disc' #-}
+disc' = discretize 
 
+-}
 
+-- Memoize and quantize a function over a finite (sub)domain, using an array. 
 
-arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
-arrayMemoFix f (l, u) =
-     let cache = runSTArray (do cache <- newArray_ (l, u)
-                                mapM_ (\x -> writeArray cache x (f' x)) (range (l, u))
+{-# INLINE quantMemo #-}
+quantMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => (a -> b) -> (a, a) -> a -> (a -> b)
+quantMemo f (l, u) delta =
+     let disc  = discretize delta
+         cache = runSTArray (do cache <- newArray_ (disc l, disc u)
+                                mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
                                 return cache)
-         f' = f (\x -> cache ! x)
-     in f'
+     in (\x -> cache ! disc x)
 
--- Use an unboxed IO array instead (but requires incoming function must return IO
+{-# INLINE quantMemoFix #-}
+quantMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
+quantMemoFix f (l, u) delta = memo_f where memo_f = quantMemo (f memo_f) (l, u) delta 
 
+-- Memoize and discretize a function over a finite (sub)domain, using an array. 
+
+{-# INLINE discMemo #-}
+discMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => (a -> b) -> (a, a) -> a -> (Discrete a -> b)
+discMemo f (l, u) delta =
+     let disc  = discretize delta
+         cache = runSTArray (do cache <- newArray_ (disc l, disc u)
+                                mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
+                                return cache)
+         
+     in (\x -> cache ! x)
+
+{-# INLINE discMemoFix #-}
+discMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (Discrete a -> b)
+discMemoFix f (l, u) delta =
+     let disc  = discretize delta
+         cache' = runSTArray (do cache <- newArray_ (disc l, disc u)
+                                 mapM_ (\x -> writeArray cache x (f (\x -> cache' ! (disc x)) (continuize delta x))) (enumFromTo (disc l) (disc u))
+                                 return cache)
+     in (\x -> cache' ! x)
+
+-- Memoize a function over a finite (sub)domain, using an array. 
+
+{-# INLINE arrayMemo #-}
+arrayMemo :: (Ix a, ArrayMemoizable b) => (a -> b) -> (a, a) -> (a -> b)
+arrayMemo f (l, u) = 
+    let cache = runSTArray (do cache <- newArray_ (l, u)
+                               mapM_ (\x -> writeArray cache x (f x)) (range (l, u))
+                               return cache)
+    in \x -> cache ! x
+
+{-# INLINE arrayMemoFix #-}
+arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
+arrayMemoFix f (l, u) = memo_f where memo_f = arrayMemo (f memo_f) (l, u)
+
+-- Memoize an function over a finite (sub)domain, using an unboxed IO array
+--       requires incoming function must return IO - but be otherwise pure
+
+{-# INLINE uarrayMemoFixIO #-}
 uarrayMemoFixIO :: (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
 uarrayMemoFixIO f (l, u) =
     \i -> do cache <- newUArray_ (l, u)
@@ -134,7 +156,7 @@ instance (Enum a, Enum b, Enum c) => Enum (a, b, c) where
     fromEnum (a, b, c) = fromEnum a * fromEnum b * fromEnum c
 
     enumFromThenTo (lx, ly, lz) (nx, ny, nz) (ux, uy, uz) = 
-        [lx,nx..ux] >>= (\x -> [ly,ny..uy] >>= (\y -> [lz,nz..uz] >>= (\z -> return (x, y, z))))
+        [lz,nz..uz] >>= (\z -> [ly,ny..uy] >>= (\y -> [lx,nx..ux] >>= (\x -> return (x, y, z))))
 
 instance (Num a, Num b) => Num (a, b) where
     (a1, b1) + (a2, b2) = (a1 + a2, b1 + b2)
@@ -152,3 +174,37 @@ instance (Num a, Num b, Num c) => Num (a, b, c) where
     abs (a, b, c) = (abs a, abs b, abs c)
     signum (a, b, c) = (signum a, signum b, signum c)
     fromInteger i = (0, 0, fromInteger i)
+
+{- 
+
+Discretization of float/double values and tuples
+
+-}
+
+class (Ix (Discrete t), Num (Discrete t), Enum (Discrete t)) => Discretize t where
+    type Discrete t
+    discretize :: t -> t -> Discrete t
+    continuize :: t -> Discrete t -> t
+
+instance Discretize Float where
+    type Discrete Float = Int
+    discretize delta x = round' (x / delta) 
+                           where round' x = let (n,r) = properFraction x in n + (round r)
+    continuize delta x = (fromIntegral x) * delta
+
+instance Discretize Double where
+    type Discrete Double = Int
+    discretize delta x = round' (x / delta) 
+                           where round' x = let (n,r) = properFraction x in n + (round r)
+    continuize delta x = (fromIntegral x) * delta
+
+instance (Discretize a, Discretize b) => Discretize (a, b) where
+    type Discrete (a, b) = (Discrete a, Discrete b)
+    discretize (dx, dy) (x, y) = (discretize dx x, discretize dy y)
+    continuize (dx, dy) (x, y) = (continuize dx x, continuize dy y)
+
+instance (Discretize a, Discretize b, Discretize c) => Discretize (a, b, c) where
+    type Discrete (a, b, c) = (Discrete a, Discrete b, Discrete c)
+    discretize (dx, dy, dz) (x, y, z) = (discretize dx x, discretize dy y, discretize dz z)
+    continuize (dx, dy, dz) (x, y, z) = (continuize dx x, continuize dy y, continuize dz z)
+
