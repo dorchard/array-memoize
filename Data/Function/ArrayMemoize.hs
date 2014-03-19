@@ -12,22 +12,14 @@ import Debug.Trace
 
 -- Memoize a function as an array over a finite domain
 
-discMemo :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
-discMemo f (l, u) delta =
+discMemoFix :: (ArrayMemoizable b, Num a, Show (Discrete a), Show a, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
+discMemoFix f (l, u) delta =
      let disc x = discretize x delta
          cache = runSTArray (do cache <- (newArray_ (disc l, disc u)) 
-                                mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) (u-delta))
+                                mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) u)
                                 return cache)
-         f' = f (\x -> (show x ++ "-" ++ show (disc x)) `trace` cache ! (disc x))
-     in (show (map disc (enumFromThenTo l (l+delta) u))) `trace` f'
-
-discMemoA f (l, u) delta =
-     let disc x = discretize x delta
-         cache = runSTArray (do cache <- (newArray_ (disc l, disc u)) 
-                                -- mapM_ (\x -> writeArray cache (disc x) (f' x)) (enumFromThenTo l (l+delta) u)
-                                return cache)
-         f' = f (\x -> (show x ++ "-" ++ show (disc x)) `trace` cache ! (disc x))
-     in cache
+         f' = f (\x -> (show (disc x)) `trace` cache ! (disc x))
+     in f'
 
 class (Ix (Discrete t), Enum t) => Discretize t where
     type Discrete t
@@ -35,11 +27,12 @@ class (Ix (Discrete t), Enum t) => Discretize t where
 
 instance Discretize Float where
     type Discrete Float = Int
-    discretize x delta = ceiling (x / delta)
+    discretize x delta = floor (x / delta)
 
+{-
 instance Discretize Double where
     type Discrete Double = Int
-    discretize x delta = ceiling (x / delta)
+    discretize x delta = floor (x / delta) -}
 
 instance (Discretize a, Discretize b) => Discretize (a, b) where
     type Discrete (a, b) = (Discrete a, Discrete b)
@@ -129,7 +122,7 @@ instance (Enum a, Enum b) => Enum (a, b) where
     fromEnum (a, b) = fromEnum a * fromEnum b
 
     enumFromThenTo (lx, ly) (nx, ny) (ux, uy) = 
-        [lx,nx..ux] >>= (\x -> [ly,ny..uy] >>= (\y -> return (x, y)))
+        [ly,ny..uy] >>= (\y -> [lx,nx..ux] >>= (\x -> return (x, y)))
 
 instance (Enum a, Enum b, Enum c) => Enum (a, b, c) where
     toEnum = undefined

@@ -1,8 +1,10 @@
 import Data.Function.ArrayMemoize
+import Unfix
 
 -- Example:
 
 -- Fibonacci (pre-fixed point)
+
 fib' :: (Int -> Int) -> Int -> Int
 fib' _ 0 = 1
 fib' _ 1 = 1
