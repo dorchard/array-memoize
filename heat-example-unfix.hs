@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 import Data.Function.ArrayMemoize
-import Language.Haskell.Unfix
+import Language.Haskell.Unfix -- http://github.com/dorchard/unfix
 
 -- Parameter setup
 dt = 0.05 
