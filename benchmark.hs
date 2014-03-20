@@ -22,8 +22,8 @@ fibIO' rec n = do a <- rec (n - 1)
 
 -- Benchmarking - comparision with the Data.Function.Memoize library
 
-fibS s = arrayMemoFix fib' (0, s)
-fibIOS s = uarrayMemoFixIO fibIO' (0,s)
+fibS s = arrayMemoFix (0, s) fib'
+fibIOS s = uarrayMemoFixIO (0,s) fibIO'
 
 main = defaultMain [
         bcompare[ bench "memoFix 1000" $ whnf (memoFix fib') 1000,

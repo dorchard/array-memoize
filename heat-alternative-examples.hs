@@ -17,11 +17,11 @@ heat' h (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
 
 -- Discrete heat function
 heat :: (Int, Int) -> Float
-heat = discreteMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heat = discreteMemoFix ((0, 0), (nx, nt)) (delx, delt) heat' 
 
 -- Quantized heat function
 heatQ :: (Float, Float) -> Float
-heatQ = quantizedMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heatQ = quantizedMemoFix ((0, 0), (nx, nt)) (delx, delt) heat'
 
 -- Alternate discretized heat function using fixed-point outside of the library 
 heatQA :: (Float, Float) -> Float
@@ -32,7 +32,7 @@ heatQA (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                    where h' x = heatQB (x, t - delt)
                          r       = alpha * (delt / (delx * delx))
 
-heatQB = quantizedMemo heatQA ((0, 0), (nx, nt)) (delx, delt)
+heatQB = quantizedMemo ((0, 0), (nx, nt)) (delx, delt) heatQA 
 heatD :: (Int, Int) -> Float
 heatD = discrete heatQB (delx,delt)
 

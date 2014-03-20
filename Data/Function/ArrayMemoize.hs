@@ -31,8 +31,8 @@ disc' = discretize
 -- Memoize and quantize a function over a finite (sub)domain, using an array. 
 
 {-# INLINE quantizedMemo #-}
-quantizedMemo :: (ArrayMemoizable b, Discretize a) => (a -> b) -> (a, a) -> a -> (a -> b)
-quantizedMemo f (l, u) delta =
+quantizedMemo :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> (a -> b) -> (a -> b)
+quantizedMemo (l, u) delta f =
      let disc  = discretize delta
          cache = runSTArray (do cache <- newArray_ (disc l, disc u)
                                 mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
@@ -40,14 +40,14 @@ quantizedMemo f (l, u) delta =
      in (\x -> cache ! disc x)
 
 {-# INLINE quantizedMemoFix #-}
-quantizedMemoFix :: (ArrayMemoizable b, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (a -> b)
-quantizedMemoFix f (l, u) delta = memo_f where memo_f = quantizedMemo (f memo_f) (l, u) delta 
+quantizedMemoFix :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> ((a -> b) -> (a -> b)) -> (a -> b)
+quantizedMemoFix (l, u) delta f = memo_f where memo_f = quantizedMemo (l, u) delta (f memo_f) 
 
 -- Memoize and discretize a function over a finite (sub)domain, using an array. 
 
 {-# INLINE discreteMemo #-}
-discreteMemo :: (ArrayMemoizable b, Discretize a) => (a -> b) -> (a, a) -> a -> (Discrete a -> b)
-discreteMemo f (l, u) delta =
+discreteMemo :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> (a -> b) -> (Discrete a -> b)
+discreteMemo (l, u) delta f =
      let disc  = discretize delta
          cache = runSTArray (do cache <- newArray_ (disc l, disc u)
                                 mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
@@ -56,8 +56,8 @@ discreteMemo f (l, u) delta =
      in (\x -> cache ! x)
 
 {-# INLINE discreteMemoFix #-}
-discreteMemoFix :: (ArrayMemoizable b, Discretize a) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> (Discrete a -> b)
-discreteMemoFix f (l, u) delta =
+discreteMemoFix :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> ((a -> b) -> (a -> b)) ->(Discrete a -> b)
+discreteMemoFix (l, u) delta f =
      let disc  = discretize delta
          cache' = runSTArray (do cache <- newArray_ (disc l, disc u)
                                  mapM_ (\x -> writeArray cache x (f (\x -> cache' ! (disc x)) (continuize delta x))) (enumFromTo (disc l) (disc u))
@@ -67,23 +67,23 @@ discreteMemoFix f (l, u) delta =
 -- Memoize a function over a finite (sub)domain, using an array. 
 
 {-# INLINE arrayMemo #-}
-arrayMemo :: (Ix a, ArrayMemoizable b) => (a -> b) -> (a, a) -> (a -> b)
-arrayMemo f (l, u) = 
+arrayMemo :: (Ix a, ArrayMemoizable b) => (a, a) -> (a -> b) -> (a -> b)
+arrayMemo (l, u) f = 
     let cache = runSTArray (do cache <- newArray_ (l, u)
                                mapM_ (\x -> writeArray cache x (f x)) (range (l, u))
                                return cache)
     in \x -> cache ! x
 
 {-# INLINE arrayMemoFix #-}
-arrayMemoFix :: (Ix a, ArrayMemoizable b) => ((a -> b) -> (a -> b)) -> (a, a) -> a -> b
-arrayMemoFix f (l, u) = memo_f where memo_f = arrayMemo (f memo_f) (l, u)
+arrayMemoFix :: (Ix a, ArrayMemoizable b) => (a, a) -> ((a -> b) -> (a -> b)) -> a -> b
+arrayMemoFix (l, u) f = memo_f where memo_f = arrayMemo (l, u) (f memo_f) 
 
 -- Memoize an function over a finite (sub)domain, using an unboxed IO array
 --       requires incoming function must return IO - but be otherwise pure
 
 {-# INLINE uarrayMemoFixIO #-}
-uarrayMemoFixIO :: (Ix a, UArrayMemoizable b) => ((a -> IO b) -> (a -> IO b)) -> (a, a) -> a -> IO b
-uarrayMemoFixIO f (l, u) =
+uarrayMemoFixIO :: (Ix a, UArrayMemoizable b) => (a, a) -> ((a -> IO b) -> (a -> IO b)) ->  a -> IO b
+uarrayMemoFixIO (l, u) f =
     \i -> do cache <- newUArray_ (l, u)
              let f' = f (\x -> readUArray cache x)
              mapM_ (\x -> (f' x) >>= (\val -> writeUArray cache x val)) (range (l, u))            

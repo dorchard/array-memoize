@@ -23,11 +23,11 @@ heat' h (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
 
 -- Discrete heat function (requires writing unfixed version (or used macro), semantically easy)
 heatD :: (Int, Int) -> Float
-heatD = discreteMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heatD = discreteMemoFix ((0, 0), (nx, nt)) (delx, delt) heat'
 
 -- Quantized heat function (as above, but semantically can be tricky around edges)
 heatQ :: (Float, Float) -> Float
-heatQ = quantizedMemoFix heat' ((0, 0), (nx, nt)) (delx, delt)
+heatQ = quantizedMemoFix ((0, 0), (nx, nt)) (delx, delt) heat'
 
 heat'' :: (Float, Float) -> Float
 heat'' (0.0, t) = 1
@@ -38,7 +38,7 @@ heat'' (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                          r    = alpha * (delt / (delx * delx))
 
 -- Discrete heat function (via quantization) (syntactically the easiest, but slower than D)
-heatQB = quantizedMemo heat'' ((0, 0), (nx, nt)) (delx, delt)
+heatQB = quantizedMemo ((0, 0), (nx, nt)) (delx, delt) heat''
 heatD2 :: (Int, Int) -> Float
 heatD2 = heatQB . (continuize (delx,delt))
 
@@ -52,7 +52,7 @@ heatA (x, t) = (h' x) + r * (h' (x - delx) - 2 * (h' x) + h' (x + delx))
                          r       = alpha * (delt / (delx * delx))
 
 heatD3 :: (Int, Int) -> Float
-heatD3 = discreteMemo heatA ((0, 0), (nx, nt)) (delx, delt)
+heatD3 = discreteMemo ((0, 0), (nx, nt)) (delx, delt) heatA
 
 -- The following is a nice style for writing it all together- and reasonably fast - faster than D2
 heat :: (Int, Int) -> Float
@@ -73,7 +73,7 @@ heat = let   -- Parameter setup
                       | otherwise = h'(x, t-dt) + r * (h'(x-dx, t-dt) - 2*(h'(x, t-dt)) + h'(x+dx, t-dt))
 
              -- Faster quantized heat equation
-             h' = quantizedMemo  h  ((0, 0), (nx, nt))  (dx, dt)
+             h' = quantizedMemo  ((0, 0), (nx, nt))  (dx, dt) h
 
         -- Finally return discrete version 
         in discrete  h'  (dx, dt)
@@ -96,7 +96,7 @@ heatDub = let   -- Parameter setup
                       | otherwise = h'(x, t-dt) + r * (h'(x-dx, t-dt) - 2*(h'(x, t-dt)) + h'(x+dx, t-dt))
 
              -- Faster quantized heat equation
-             h' = quantizedMemo  h  ((0, 0), (nx, nt))  (dx, dt)
+             h' = quantizedMemo   ((0, 0), (nx, nt))  (dx, dt) h
 
           -- Finally return discrete version 
           in discrete  h'  (dx, dt)
