@@ -14,7 +14,6 @@ r = alpha * (dt / (dx * dx))
 
 -- Continuous heat equation
 refix [| discreteMemoFix ((0, 0), (nx, nt)) (dx, dt) |]
-  
       [d| heat (x, t) 
            | x == 0.0  = 1
            | x == nx   = 0

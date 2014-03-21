@@ -8,6 +8,8 @@ import Data.Array.IO (IOUArray)
 import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
 
+import Debug.Trace
+
 {-
 
 Attempt at rewrite rules
@@ -29,20 +31,31 @@ disc' = discretize
 -- Memoize and quantize a function over a finite (sub)domain, using an array. 
 
 {-# INLINE quantizedMemo #-}
-quantizedMemo :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> (a -> b) -> (a -> b)
+quantizedMemo :: (Show a, ArrayMemoizable b, Discretize a) => (a, a) -> a -> (a -> b) -> (a -> b)
 quantizedMemo (l, u) delta f =
      let disc  = discretize delta
-         cache = runSTArray (do cache <- newArray_ (disc l, disc u)
-                                mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (disc u))
+         cache = runSTArray (do cache <- newArray_ (disc l, succ (disc u))
+                                mapM_ (\x -> writeArray cache x (f (continuize delta x))) (enumFromTo (disc l) (succ (disc u)))
                                 return cache)
      in (\x -> cache ! disc x)
 
-{-# INLINE quantizedMemoFix #-}
-quantizedMemoFix :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> ((a -> b) -> (a -> b)) -> (a -> b)
+{-# INLINE quantizedMemoFix #-} 
+quantizedMemoFix :: (ArrayMemoizable b, Discretize a, Show a) => (a, a) -> a -> ((a -> b) -> (a -> b)) -> (a -> b)
 quantizedMemoFix (l, u) delta f = memo_f where memo_f = quantizedMemo (l, u) delta (f memo_f) 
 
+{-
+quantizedMemoFix :: (Show a, ArrayMemoizable b, Discretize a) => (a, a) -> a -> ((a -> b) -> (a -> b)) -> (a -> b)
+quantizedMemoFix (l, u) delta f =
+     let disc  = discretize delta
+         cache = runSTArray (do cache <- newArray_ (disc l, succ (disc u))
+                                mapM_ (\x -> writeArray cache x (f' (continuize delta x))) (enumFromTo (disc l) (succ (disc u)))
+                                return cache)
+         f' = f (\x ->(show x) `trace`   cache ! disc x) --  
+     in f'-}
+
+
 {-# INLINE quantizedMemoFixMutual #-}
-quantizedMemoFixMutual :: (ArrayMemoizable b, ArrayMemoizable d, Discretize a, Discretize c) => (a, a) -> a -> (c, c) -> c -> ((a -> b) -> (c -> d) -> (a -> b)) -> ((a -> b) -> (c -> d) -> (c -> d)) -> (a -> b)
+quantizedMemoFixMutual :: (ArrayMemoizable b, ArrayMemoizable d, Discretize a, Discretize c, Show a, Show c) => (a, a) -> a -> (c, c) -> c -> ((a -> b) -> (c -> d) -> (a -> b)) -> ((a -> b) -> (c -> d) -> (c -> d)) -> (a -> b)
 quantizedMemoFixMutual (l, u) delta (l', u') delta' f g =
     memo_f where memo_f = quantizedMemo (l, u) delta (f memo_f memo_g) 
                  memo_g = quantizedMemo (l', u') delta' (g memo_f memo_g) 
@@ -157,6 +170,7 @@ Num and Enum classes for working with tuple domains
 
 instance (Enum a, Enum b) => Enum (a, b) where
     toEnum = undefined
+    succ (a, b) = (succ a, succ b)
     fromEnum (a, b) = fromEnum a * fromEnum b
 
     enumFromTo (lx, ly) (ux, uy) = 
@@ -164,6 +178,7 @@ instance (Enum a, Enum b) => Enum (a, b) where
 
 instance (Enum a, Enum b, Enum c) => Enum (a, b, c) where
     toEnum = undefined
+    succ (a, b, c) = (succ a, succ b, succ c)
     fromEnum (a, b, c) = fromEnum a * fromEnum b * fromEnum c
 
     enumFromThenTo (lx, ly, lz) (nx, ny, nz) (ux, uy, uz) = 
