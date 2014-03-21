@@ -8,8 +8,6 @@ import Data.Array.IO (IOUArray)
 import Data.Array.ST (STArray, STUArray, runSTArray)
 import Control.Monad.ST
 
-import Debug.Trace
-
 {-
 
 Attempt at rewrite rules
@@ -42,6 +40,12 @@ quantizedMemo (l, u) delta f =
 {-# INLINE quantizedMemoFix #-}
 quantizedMemoFix :: (ArrayMemoizable b, Discretize a) => (a, a) -> a -> ((a -> b) -> (a -> b)) -> (a -> b)
 quantizedMemoFix (l, u) delta f = memo_f where memo_f = quantizedMemo (l, u) delta (f memo_f) 
+
+{-# INLINE quantizedMemoFixMutual #-}
+quantizedMemoFixMutual :: (ArrayMemoizable b, ArrayMemoizable d, Discretize a, Discretize c) => (a, a) -> a -> (c, c) -> c -> ((a -> b) -> (c -> d) -> (a -> b)) -> ((a -> b) -> (c -> d) -> (c -> d)) -> (a -> b)
+quantizedMemoFixMutual (l, u) delta (l', u') delta' f g =
+    memo_f where memo_f = quantizedMemo (l, u) delta (f memo_f memo_g) 
+                 memo_g = quantizedMemo (l', u') delta' (g memo_f memo_g) 
 
 -- Memoize and discretize a function over a finite (sub)domain, using an array. 
 
@@ -77,6 +81,13 @@ arrayMemo (l, u) f =
 {-# INLINE arrayMemoFix #-}
 arrayMemoFix :: (Ix a, ArrayMemoizable b) => (a, a) -> ((a -> b) -> (a -> b)) -> a -> b
 arrayMemoFix (l, u) f = memo_f where memo_f = arrayMemo (l, u) (f memo_f) 
+
+{-# INLINE arrayMemoFixMutual #-}
+arrayMemoFixMutual :: (ArrayMemoizable b, ArrayMemoizable d, Ix a, Ix c) => (a, a) -> (c, c) -> ((a -> b) -> (c -> d) -> (a -> b)) -> ((a -> b) -> (c -> d) -> (c -> d)) -> (a -> b)
+arrayMemoFixMutual (l, u) (l', u') f g =
+    memo_f where memo_f = arrayMemo (l, u) (f memo_f memo_g) 
+                 memo_g = arrayMemo (l', u')  (g memo_f memo_g) 
+
 
 -- Memoize an function over a finite (sub)domain, using an unboxed IO array
 --       requires incoming function must return IO - but be otherwise pure
