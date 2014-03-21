@@ -1,5 +1,4 @@
 import Data.Function.ArrayMemoize
-import Language.Haskell.Unfix
 
 -- Example:
 
