@@ -1,6 +1,7 @@
-module Plot(plotDefault,writePlot,plot3d) where
+module Plot(plotDefault,plot,writePlot,plot3d,simple2d,plotX11) where
 
 import Graphics.Gnuplot.Advanced 
+import qualified Graphics.Gnuplot.Terminal.X11 as X11
 import Graphics.Gnuplot.File
 import qualified Graphics.Gnuplot.Graph.TwoDimensional as Graph2D
 import qualified Graphics.Gnuplot.Plot.TwoDimensional as Plot2D
@@ -34,5 +35,7 @@ plot3d dx dy (sx, nx) (sy, ny) xlabel ylabel zlabel fun =
    Frame.cons frameOpts (Plot3D.surface meshNodesX meshNodesY fun)
 
 writePlot p fname = plot (PS.color (PS.eps (PS.cons fname))) p
-                    --plot (PNG.cons fname) p
 
+writePlotPNG p fname = plot (PNG.cons fname) p
+
+plotX11 g = plot (X11.cons) g

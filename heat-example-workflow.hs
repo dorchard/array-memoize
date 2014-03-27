@@ -26,14 +26,16 @@ instance Params Double where
 r = alph * (dt / (dx * dx))
 
 -- Continuous heat equation
-unfix [d| heat :: (Params a, RealFrac a) => (a, a) -> a
-          heat (x, t) 
+unfix [d| heat (x, t) 
             | x == 0  = 1
             | x == nx = 1 -- heat(x-dx, t)
             | t == 0  = 0
-            | otherwise = heat(x, t-dt) + r * parens (heat(x-dx, t-dt) - 2*(heat(x, t-dt)) + heat(x+dx, t-dt)) |]
+            | otherwise = heat(x, t-dt) + r * parens (heat(x-dx, t-dt) - 
+                                                   2*(heat(x, t-dt)) + heat(x+dx, t-dt)) |]
 
 heatQ = quantizedMemoFix ((0, 0), (nx, nt)) (dx, dt) heat
+
+
 
 instance Params LaTeX where
     dx = deltau <> (fromString "x")
@@ -50,7 +52,12 @@ main = do let plot = plot3d dx dt (0.0, nx) (0.0, nt) "x distance" "t time" "e h
                            (nx, fromString "t"),
                            (fromString "x", 0),
                            (fromString "x", fromString "t")]
-          -- plotDefault plot
-          writePlot plot "heat.eps"
-          writeLatexFigure heatTex "heat.eps" "heat.tex"
+          plotX11 plot
+          putStrLn "write out too?"
+          guard <- readLn
+          if (guard == "y") then
+            do writePlot plot "heat.eps"
+               writeLatexFigure heatTex "heat.eps" "heat.tex"
+          else
+            return ()
           
