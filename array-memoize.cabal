@@ -1,0 +1,29 @@
+name:                   array-memoize
+version:                0.2
+synopsis:               Array memoization
+
+description:            Array memoization
+
+license:                BSD3
+license-file:           LICENSE
+category:               Syntax,
+copyright:              2014 University of Cambridge
+author:                 Dominic Orchard
+maintainer:             Dominic Orchard
+stability:              experimental
+build-type:             Simple
+cabal-version:          >= 1.6
+tested-with:            GHC >= 7.6
+
+
+source-repository head
+  type: git
+  location: https://github.com/dorchard/array-memoize
+
+library
+  hs-source-dirs:       .
+
+  exposed-modules:      Data.Function.ArrayMemoize
+                        
+  build-depends:        base < 5,
+                        array >= 0.4
