@@ -16,11 +16,11 @@ description:            Memoization combinators are great for providing high-per
 			  fib' _ 0 = 1
 			  fib' _ 1 = 1
 			  fib' rec n = rec (n - 1) + rec (n - 2)
-
-			  -- Memoizes fib between 0 and 1000 (after that it is a run-time error)
+			  .		  
 			  fib :: Int -> Int
 			  fib = arrayMemoFix (0, 1000) fib'
 			@
+			This memoizes fib' between 0 and 1000 (after that it is a run-time error).
 
 license:                BSD3
 license-file:           LICENSE
