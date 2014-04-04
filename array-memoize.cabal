@@ -1,10 +1,10 @@
 name:                   array-memoize
-version:                0.5.0
-synopsis:               Memoization combinators for finite subsets of function domains using arrays
+version:                0.6.0
+synopsis:               Memoization combinators using arrays for finite sub-domains of functions
 
 description:            Memoization combinators are great for providing high-performance Haskell programs,
 			but they can be even faster if memoization is performed on a finite, discrete domain
-			as an array can then be used.
+			since an array can then be used to store results. 
 			.
 			This package provides various combinators for doing just this, including also 
 			combinators for quanitzing and discretizing Float/Double-valued functions.
@@ -12,12 +12,14 @@ description:            Memoization combinators are great for providing high-per
 			Example:
 			.
 			@
-			  fibA :: Int -> Int
-			  fibA 0 = 1
-			  fibA 1 = 1
-			  fibA n = fibB (n - 1) + fibB (n - 2)
+			  fib' :: (Int -> Int) -> Int -> Int
+			  fib' _ 0 = 1
+			  fib' _ 1 = 1
+			  fib' rec n = rec (n - 1) + rec (n - 2)
 
-			  fibB = arrayMemo (0, 1000) fibA 
+			  -- Memoizes fib between 0 and 1000 (after that it is a run-time error)
+			  fib :: Int -> Int
+			  fib = arrayMemoFix (0, 1000) fib'
 			@
 
 license:                BSD3
