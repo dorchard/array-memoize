@@ -8,6 +8,8 @@ combinators for quanitzing and discretizing Float/Double-valued functions.
 Example:
 
 
+    import Data.Function.ArrayMemoize
+    
     fibA :: Int -> Int
     fibA 0 = 1
     fibA 1 = 1
