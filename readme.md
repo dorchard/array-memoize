@@ -8,9 +8,9 @@ combinators for quanitzing and discretizing Float/Double-valued functions.
 Example:
 
 
- fibA :: Int -> Int
- fibA 0 = 1
- fibA 1 = 1
- fibA n = fibB (n - 1) + fibB (n - 2)
-
- fibB = arrayMemo (0, 1000) fibA 
+    fibA :: Int -> Int
+    fibA 0 = 1
+    fibA 1 = 1
+    fibA n = fibB (n - 1) + fibB (n - 2)
+   
+    fibB = arrayMemo (0, 1000) fibA 
